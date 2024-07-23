@@ -1,13 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /// start
+  swcMinify: false,
+  experimental: {
+    serverMinification: false,
+  },
+  webpack: (config) => {
+    config.optimization.minimize = false;
+    return config;
+  },
+  /// end
   poweredByHeader: false,
   cleanDistDir: true,
   transpilePackages: ["@example/shared"],
   output: "standalone",
-  outputFileTracing: "../sst",
-  experimental: {
-    serverActions: true,
-  },
+  outputFileTracing: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -19,7 +26,7 @@ const nextConfig = {
       },
     ],
   },
-  redirects: () => {
+  async redirects() {
     return [
       {
         source: "/next-config-redirect-missing",
@@ -60,7 +67,7 @@ const nextConfig = {
       },
     ];
   },
-  headers() {
+  async headers() {
     return [
       {
         source: "/(.*)",

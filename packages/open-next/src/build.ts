@@ -91,7 +91,7 @@ export async function build(
   initOutputDir(tempDir);
 
   // Compile cache.ts
-  compileCache();
+  compileCache("esm");
 
   // Compile middleware
   await createMiddleware();
@@ -100,9 +100,15 @@ export async function build(
   await createCacheAssets(monorepoRoot);
 
   await createServerBundle(config, options);
-  await createRevalidationBundle(config);
-  await createImageOptimizationBundle(config);
-  await createWarmerBundle(config);
+  if (!config.disableRevalidateFunction) {
+    await createRevalidationBundle(config);
+  }
+  if (!config.disableOptimizationFunction) {
+    await createImageOptimizationBundle(config);
+  }
+  if (!config.disableWarmerFunction) {
+    await createWarmerBundle(config);
+  }
   await generateOutput(options.appBuildOutputPath, config);
   logger.info("OpenNext build complete.");
 }

@@ -38,7 +38,7 @@ const converter: Converter<
       method,
       rawPath,
       url: event.url,
-      body: shouldHaveBody ? Buffer.from(body) : undefined,
+      body: shouldHaveBody ? Buffer.from(body) : Buffer.from([]),
       headers: headers,
       remoteAddress: (event.headers.get("x-forwarded-for") as string) ?? "::1",
       query,

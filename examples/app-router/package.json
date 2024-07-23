@@ -3,16 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "openbuild": "node ../../packages/open-next/dist/index.js build --streaming --build-command \"npx turbo build\"",
+    "openbuild": "OPEN_NEXT_DEBUG=true node ../../packages/open-next/dist/index.js build --streaming --build-command \"npx turbo build\"",
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start --port 3001",
     "lint": "next lint",
-    "clean": "rm -rf .turbo node_modules .next .open-next"
+    "clean": "rm -rf .turbo node_modules .next .open-next",
+    "prewrangler": "npm run openbuild && node build.mjs",
+    "preview": "wrangler dev"
   },
   "dependencies": {
     "@example/shared": "workspace:*",
     "@open-next/utils": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "critters": "^0.0.24",
     "next": "^14.1.4",
     "open-next": "workspace:*",
     "react": "latest",
@@ -23,8 +27,10 @@
     "@types/react": "18.2.20",
     "@types/react-dom": "18.2.7",
     "autoprefixer": "10.4.15",
+    "esbuild": "^0.23.0",
     "postcss": "8.4.27",
     "tailwindcss": "3.3.3",
-    "typescript": "^4.9.3"
+    "typescript": "^4.9.3",
+    "wrangler": "^3.64.0"
   }
 }

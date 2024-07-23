@@ -81,26 +81,7 @@ export async function buildEdgeBundle({
       conditions: ["module"],
       mainFields: ["module", "main"],
       banner: {
-        js: `
-  ${
-    overrides?.wrapper === "cloudflare"
-      ? ""
-      : `
-  const require = (await import("node:module")).createRequire(import.meta.url);
-  const __filename = (await import("node:url")).fileURLToPath(import.meta.url);
-  const __dirname = (await import("node:path")).dirname(__filename);
-
-  const defaultDefineProperty = Object.defineProperty;
-  Object.defineProperty = function(o, p, a) {
-    if(p=== '__import_unsupported') {
-      return;
-    }
-    return defaultDefineProperty(o, p, a);
-  };
-  `
-  }
-  ${additionalInject ?? ""}
-  `,
+        js: additionalInject ?? "",
       },
     },
     options,

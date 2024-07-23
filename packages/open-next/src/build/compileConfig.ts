@@ -39,12 +39,7 @@ export function compileOpenNextConfigNode(
       external: nodeExternals ? nodeExternals.split(",") : [],
       platform: "node",
       banner: {
-        js: [
-          "import { createRequire as topLevelCreateRequire } from 'module';",
-          "const require = topLevelCreateRequire(import.meta.url);",
-          "import bannerUrl from 'url';",
-          "const __dirname = bannerUrl.fileURLToPath(new URL('.', import.meta.url));",
-        ].join(""),
+        js: "",
       },
     });
   }

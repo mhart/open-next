@@ -64,9 +64,9 @@ type ImageECSOrigins = OpenNextECSOrigin & { imageLoader: string };
 type ImageOrigins = ImageFnOrigins | ImageECSOrigins;
 
 type DefaultOrigins = {
-  s3: OpenNextS3Origin;
+  s3?: OpenNextS3Origin;
   default: OpenNextServerFunctionOrigin | OpenNextServerECSOrigin;
-  imageOptimizer: ImageOrigins;
+  imageOptimizer?: ImageOrigins;
 };
 
 interface OpenNextOutput {
@@ -226,17 +226,19 @@ export async function generateOutput(
             ]),
       ],
     },
-    imageOptimizer: {
-      type: "function",
-      handler: "index.handler",
-      bundle: ".open-next/image-optimization-function",
-      streaming: false,
-      imageLoader: await extractOverrideName(
-        "s3",
-        config.imageOptimization?.loader,
-      ),
-      ...(await extractOverrideFn(config.imageOptimization?.override)),
-    },
+    imageOptimizer: config.disableOptimizationFunction
+      ? undefined
+      : {
+          type: "function",
+          handler: "index.handler",
+          bundle: ".open-next/image-optimization-function",
+          streaming: false,
+          imageLoader: await extractOverrideName(
+            "s3",
+            config.imageOptimization?.loader,
+          ),
+          ...(await extractOverrideFn(config.imageOptimization?.override)),
+        },
     default: config.default.override?.generateDockerfile
       ? {
           type: "ecs",
@@ -347,10 +349,12 @@ export async function generateOutput(
     additionalProps: {
       disableIncrementalCache: config.dangerous?.disableIncrementalCache,
       disableTagCache: config.dangerous?.disableTagCache,
-      warmer: {
-        handler: "index.handler",
-        bundle: ".open-next/warmer-function",
-      },
+      warmer: config.disableWarmerFunction
+        ? undefined
+        : {
+            handler: "index.handler",
+            bundle: ".open-next/warmer-function",
+          },
       initializationFunction: isTagCacheDisabled
         ? undefined
         : {

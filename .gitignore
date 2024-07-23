@@ -26,3 +26,6 @@ test-results
 .sst.config*
 .next/
 .open-next/
+.wrangler/
+examples/app-router/meta.json
+examples/app-router/out.mjs

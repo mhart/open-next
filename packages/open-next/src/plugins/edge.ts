@@ -90,11 +90,8 @@ export function openNextEdgePlugins({
       build.onLoad({ filter: /\/edgeFunctionHandler.js/g }, async (args) => {
         let contents = readFileSync(args.path, "utf-8");
         contents = `
-globalThis._ENTRIES = {};
+globalThis._ENTRIES ??= {};
 globalThis.self = globalThis;
-if(!globalThis.process){
-  globalThis.process = {env: {}};
-}
 globalThis._ROUTES = ${JSON.stringify(routes)};
 
 import {Buffer} from "node:buffer";

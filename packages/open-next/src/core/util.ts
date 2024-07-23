@@ -27,7 +27,7 @@ import {
 overrideNextjsRequireHooks(NextConfig);
 applyNextjsRequireHooksOverride();
 //#endOverride
-const cacheHandlerPath = require.resolve("./cache.cjs");
+const cacheHandlerPath = "./cache.cjs";
 // @ts-ignore
 export const requestHandler = new NextServer.default({
   //#override requestHandlerHost

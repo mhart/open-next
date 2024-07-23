@@ -3,11 +3,11 @@
 import { BuildId } from "config/index.js";
 
 import { createMainHandler } from "../core/createMainHandler.js";
-import { setNodeEnv } from "./util.js";
+// import { setNodeEnv } from "./util.js";
 
 // We load every config here so that they are only loaded once
 // and during cold starts
-setNodeEnv();
+// setNodeEnv();
 setBuildIdEnv();
 setNextjsServerWorkingDirectory();
 

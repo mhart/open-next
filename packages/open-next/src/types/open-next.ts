@@ -263,6 +263,8 @@ export interface OpenNextConfig {
     originResolver?: "pattern-env" | LazyLoadedOverride<OriginResolver>;
   };
 
+  disableWarmerFunction?: boolean;
+
   /**
    * Override the default warmer
    * By default, works for lambda only.
@@ -273,6 +275,8 @@ export interface OpenNextConfig {
     invokeFunction: "aws-lambda" | LazyLoadedOverride<Warmer>;
   };
 
+  disableRevalidateFunction?: boolean;
+
   /**
    * Override the default revalidate function
    * By default, works for lambda and on SQS event.
@@ -282,6 +286,8 @@ export interface OpenNextConfig {
     { host: string; url: string; type: "revalidate" },
     { type: "revalidate" }
   >;
+
+  disableOptimizationFunction?: boolean;
 
   /**
    * Override the default revalidate function

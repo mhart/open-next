@@ -13,6 +13,7 @@ import url from "url";
 import { compileCache } from "../build.js";
 import logger from "../logger.js";
 import { minifyAll } from "../minimize-js.js";
+import { openNextEdgePlugins } from "../plugins/edge.js";
 import { openNextReplacementPlugin } from "../plugins/replacement.js";
 import { openNextResolvePlugin } from "../plugins/resolve.js";
 import { bundleNextServer } from "./bundleNextServer.js";
@@ -38,14 +39,6 @@ export async function createServerBundle(
   // Get all functions to build
   const defaultFn = config.default;
   const functions = Object.entries(config.functions ?? {});
-
-  // Recompile cache.ts as ESM if any function is using Deno runtime
-  if (
-    defaultFn.runtime === "deno" ||
-    functions.some(([, fn]) => fn.runtime === "deno")
-  ) {
-    compileCache("esm");
-  }
 
   const promises = functions.map(async ([name, fnOptions]) => {
     const routes = fnOptions.routes;
@@ -144,9 +137,8 @@ async function generateBundle(
   const packagePath = path.relative(monorepoRoot, appBuildOutputPath);
   fs.mkdirSync(path.join(outputPath, packagePath), { recursive: true });
 
-  const ext = fnOptions.runtime === "deno" ? "mjs" : "cjs";
   fs.copyFileSync(
-    path.join(outputDir, ".build", `cache.${ext}`),
+    path.join(outputDir, ".build", `cache.mjs`),
     path.join(outputPath, packagePath, "cache.cjs"),
   );
 
@@ -205,6 +197,19 @@ async function generateBundle(
 
   const disableRouting = isBefore13413 || config.middleware?.external;
   const plugins = [
+    openNextEdgePlugins({
+      nextDir: path.join(appBuildOutputPath, ".next"),
+      isInCloudfare: true,
+      middlewareInfo: {
+        assets: [],
+        files: [],
+        matchers: [],
+        wasm: [],
+        name: "",
+        page: "",
+      },
+    }),
+
     openNextReplacementPlugin({
       name: `requestHandlerOverride ${name}`,
       target: /core(\/|\\)requestHandler\.js/g,
@@ -252,12 +257,6 @@ async function generateBundle(
       banner: {
         js: [
           `globalThis.monorepoPackagePath = "${packagePath}";`,
-          "import process from 'node:process';",
-          "import { Buffer } from 'node:buffer';",
-          "import { createRequire as topLevelCreateRequire } from 'module';",
-          "const require = topLevelCreateRequire(import.meta.url);",
-          "import bannerUrl from 'url';",
-          "const __dirname = bannerUrl.fileURLToPath(new URL('.', import.meta.url));",
           name === "default" ? "" : `globalThis.fnName = "${name}";`,
         ].join(""),
       },
@@ -326,7 +325,9 @@ function addMonorepoEntrypoint(outputPath: string, packagePath: string) {
   const packagePosixPath = packagePath.split(path.sep).join(path.posix.sep);
   fs.writeFileSync(
     path.join(outputPath, "index.mjs"),
-    [`export * from "./${packagePosixPath}/index.mjs";`].join(""),
+    [
+      `import { handler } from "./${packagePosixPath}/index.mjs"; export default { fetch: handler };`,
+    ].join(""),
   );
 }
 
