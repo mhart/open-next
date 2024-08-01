@@ -100,12 +100,18 @@ contents = contents
 
 contents = contents.replace(
   "this.buildId = this.getBuildId();",
-  "this.buildId = process.env.NEXT_BUILD_ID;",
+  "this.buildId = BuildId;",
 );
 
 contents = contents.replace(
   /function loadManifest\((.+?), .+?\) {/,
   `$&
+  if ($1.endsWith(".next/server/app-paths-manifest.json")) {
+    return ${readFileSync(
+      ".open-next/server-functions/default/examples/app-router/.next/server/app-paths-manifest.json",
+      "utf-8",
+    )}
+  }
   if ($1.endsWith(".next/server/next-font-manifest.json")) {
     return ${readFileSync(
       ".open-next/server-functions/default/examples/app-router/.next/server/next-font-manifest.json",
@@ -204,12 +210,33 @@ contents = contents.replace(
   if (pagePath.endsWith(".next/server/pages/_error.js")) {
     return require("./.open-next/server-functions/default/examples/app-router/.next/server/pages/_error.js");
   }
+  if (pagePath.endsWith(".next/server/app/_not-found.js")) {
+    return require("./.open-next/server-functions/default/examples/app-router/.next/server/app/_not-found.js");
+  }
+  if (pagePath.endsWith(".next/server/app/api/host/route.js")) {
+    return require("./.open-next/server-functions/default/examples/app-router/.next/server/app/api/host/route.js");
+  }
+  if (pagePath.endsWith(".next/server/app/api/client/route.js")) {
+    return require("./.open-next/server-functions/default/examples/app-router/.next/server/app/api/client/route.js");
+  }
   `,
 );
 
 contents = contents.replace(
   / ([a-zA-Z0-9_]+) = require\("url"\);/g,
-  ' $1 = require("url"); const origParse = $1.parse; $1.parse = (a, b, c) => a.startsWith("/") ? { query: Object.create(null), pathname: a, path: a, href: a } : origParse(a, b, c);',
+  ` $1 = require("url");
+    const origParse = $1.parse;
+    $1.parse = (a, b, c) => a.startsWith("/") ? { query: Object.create(null), pathname: a, path: a, href: a } : origParse(a, b, c);
+    const origFormat = $1.format;
+    $1.format = (a, b) => a?.pathname ? a.pathname : origFormat(a, b);
+  `,
+);
+
+contents = contents.replace(
+  "function findDir(dir, name) {",
+  `function findDir(dir, name) {
+    if (dir.endsWith(".next/server") && (name === "app" || name === "pages")) return true;
+`,
 );
 
 writeFileSync("./out.mjs", contents);
@@ -236,6 +263,18 @@ writeFileSync(
       if (installedChunks[chunkId]) return;
       if (chunkId === 72) {
         installChunk(require("./chunks/72.js"));
+        return;
+      }
+      if (chunkId === 638) {
+        installChunk(require("./chunks/638.js"));
+        return;
+      }
+      if (chunkId === 719) {
+        installChunk(require("./chunks/719.js"));
+        return;
+      }
+      if (chunkId === 791) {
+        installChunk(require("./chunks/791.js"));
         return;
       }
     `,
