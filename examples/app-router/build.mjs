@@ -21,6 +21,27 @@ let replaceRelativePlugin = {
     build.onResolve({ filter: /^\.\/node-polyfill-/ }, (args) => ({
       path: path.join(import.meta.dirname, "./shim-empty.mjs"),
     }));
+
+    // No need for edge-runtime sandbox
+    build.onResolve({ filter: /\.\/web\/sandbox$/ }, (args) => ({
+      path: path.join(import.meta.dirname, "./shim-empty.mjs"),
+    }));
+
+    // No need for supporting previews and jsonwebtoken
+    build.onResolve(
+      { filter: /\.\/api-utils\/node\/try-get-preview-data$/ },
+      (args) => ({
+        path: path.join(import.meta.dirname, "./shim-try-get-preview-data.mjs"),
+      }),
+    );
+
+    build.onResolve({ filter: /\.\/file-system-cache$/ }, (args) => ({
+      path: path.join(import.meta.dirname, "./shim-empty.mjs"),
+    }));
+
+    build.onResolve({ filter: /\.\/lib\/node-fs-methods$/ }, (args) => ({
+      path: path.join(import.meta.dirname, "./shim-empty.mjs"),
+    }));
   },
 };
 
@@ -74,6 +95,7 @@ const result = await esbuild.build({
     // "react-dom/static.edge": "./shim-empty.mjs",
     // "@opentelemetry/api": "./shim-opentelemetry.mjs",
     // critters: "./shim-empty.mjs",
+    "next/dist/experimental/testmode/server": "./shim-empty.mjs",
     "@next/env": "./shim-env.mjs",
   },
   plugins: [replaceRelativePlugin],
@@ -229,6 +251,7 @@ contents = contents.replace(
     }
     async revalidateTag(tags) {
       console.log('revalidateTag', tags);
+      this.cache = Object.create(null);
     }
     resetRequestCache() {
       console.log('resetRequestCache');
@@ -318,3 +341,17 @@ writeFileSync(
     'let mime = __importStar(require("mime")); mime = mime.default ?? mime;',
   ),
 );
+
+const unenvProcessFiles = [
+  "../../node_modules/unenv/runtime/node/process/$cloudflare.cjs",
+  "../../node_modules/unenv/runtime/node/process/$cloudflare.mjs",
+];
+for (const unenvProcessFile of unenvProcessFiles) {
+  writeFileSync(
+    unenvProcessFile,
+    readFileSync(unenvProcessFile, "utf-8").replace(
+      'const unpatchedGlobalThisProcess = globalThis["process"];',
+      'const processKey = "process"; const unpatchedGlobalThisProcess = globalThis[processKey];',
+    ),
+  );
+}
