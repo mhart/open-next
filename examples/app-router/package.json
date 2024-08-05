@@ -20,7 +20,8 @@
     "next": "^14.1.4",
     "open-next": "workspace:*",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "styled-jsx": "5.1.1"
   },
   "devDependencies": {
     "@types/node": "20.5.0",
