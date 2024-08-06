@@ -17,24 +17,24 @@ const config = {
       wrapper: "cloudflare", // src/wrappers/
       converter: "edge", // src/converters/
       tagCache: async () => ({
-        getByTag: async (tag: string) => [],
-        getByPath: async (path: string) => [],
-        getLastModified: async (path: string, lastModified?: number) => 0,
+        getByTag: async (_tag: string) => [],
+        getByPath: async (_path: string) => [],
+        getLastModified: async (_path: string, _lastModified?: number) => 0,
         writeTags: async (
-          tags: { tag: string; path: string; revalidatedAt?: number }[],
+          _tags: { tag: string; path: string; revalidatedAt?: number }[],
         ) => {},
         name: "cloudflare",
       }),
       queue: async () => ({
-        send: async (message: any) => {},
+        send: async (_message: any) => {},
         name: "cloudflare",
       }),
       incrementalCache: async () => ({
-        get: async (key: string, isFetch?: boolean) => ({
+        get: async (_key: string, _isFetch?: boolean) => ({
           value: {} as any,
         }),
-        set: async (key: string, value: any, isFetch?: boolean) => {},
-        delete: async (key: string) => {},
+        set: async (_key: string, _value: any, _isFetch?: boolean) => {},
+        delete: async (_key: string) => {},
         name: "cloudflare",
       }),
     },
