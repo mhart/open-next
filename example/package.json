@@ -12,21 +12,21 @@
     "preview": "wrangler dev"
   },
   "dependencies": {
-    "dayjs": "^1.11.9",
+    "dayjs": "^1.11.12",
     "gray-matter": "^4.0.3",
-    "next": "13.4.12",
-    "next-auth": "^4.22.1",
+    "next": "14.2.5",
+    "next-auth": "^4.24.7",
     "react": "latest",
     "react-dom": "latest",
-    "remark": "^13.0.0",
-    "remark-html": "^13.0.2",
-    "swr": "^1.0.1"
+    "remark": "^15.0.1",
+    "remark-html": "^16.0.1",
+    "swr": "^2.2.5"
   },
   "devDependencies": {
-    "aws-cdk-lib": "2.84.0",
-    "constructs": "10.1.156",
+    "aws-cdk-lib": "2.151.0",
+    "constructs": "10.3.0",
     "esbuild": "^0.23.0",
-    "sst": "2.16.3",
+    "sst": "2.43.4",
     "wrangler": "^3.68.0"
   }
 }
