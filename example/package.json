@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "openbuild": "OPEN_NEXT_DEBUG=true node ../packages/open-next/dist/index.js build",
+    "openbuild": "DEBUG='next:*' OPEN_NEXT_DEBUG=true node ../packages/open-next/dist/index.js build",
     "dev": "sst bind next dev",
     "build": "next build",
     "start": "next start",
     "deploy": "sst deploy",
-    "prewrangler": "npm run openbuild && node build.mjs",
+    "prewrangler": "pnpm run openbuild && node build.mjs",
     "preview": "wrangler dev"
   },
   "dependencies": {

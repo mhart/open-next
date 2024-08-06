@@ -1,9 +1,28 @@
 import * as esbuild from "esbuild";
 import * as path from "node:path";
-import { readFileSync, writeFileSync, readdirSync, globSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  globSync,
+  existsSync,
+} from "node:fs";
 
-const BASE_DIR = ".open-next/server-functions/default";
-const APP_BASE_DIR = BASE_DIR + "/examples/app-router";
+let MONOREPO_ROOT = ".";
+while (!existsSync(MONOREPO_ROOT + "/pnpm-workspace.yaml")) {
+  MONOREPO_ROOT = MONOREPO_ROOT + "/..";
+}
+
+const openNextOutput = JSON.parse(
+  readFileSync(".open-next/open-next.output.json", "utf-8"),
+);
+const BASE_DIR = openNextOutput.origins.default.bundle; // .open-next/server-functions/default
+const APP_BASE_DIR =
+  BASE_DIR +
+  "/" +
+  readFileSync(BASE_DIR + "/index.mjs", "utf-8").match(
+    /from "\.\/(.+)\/index.mjs"/,
+  )[1]; // .open-next/server-functions/default/examples/app-router
 const NEXT_DIR = APP_BASE_DIR + "/.next";
 const NEXT_SERVER_DIR = NEXT_DIR + "/server";
 
@@ -155,18 +174,23 @@ contents = contents.replace(
   `,
 );
 
-const htmlPages = globSync(NEXT_SERVER_DIR + "/pages/*.html").map((file) =>
-  file.replace(APP_BASE_DIR + "/", ""),
-);
+const pagesManifestFile = NEXT_SERVER_DIR + "/pages-manifest.json";
+const appPathsManifestFile = NEXT_SERVER_DIR + "/app-paths-manifest.json";
 
-const pageModules = [
-  globSync(NEXT_SERVER_DIR + "/pages/*.js"),
-  globSync(NEXT_SERVER_DIR + "/app/**/page.js"),
-  globSync(NEXT_SERVER_DIR + "/app/**/route.js"),
-  globSync(NEXT_SERVER_DIR + "/app/**/_not-found.js"),
-]
-  .flat()
-  .map((file) => file.replace(APP_BASE_DIR + "/", ""));
+const pagesManifestFiles = existsSync(pagesManifestFile)
+  ? Object.values(JSON.parse(readFileSync(pagesManifestFile, "utf-8"))).map(
+      (file) => ".next/server/" + file,
+    )
+  : [];
+const appPathsManifestFiles = existsSync(appPathsManifestFile)
+  ? Object.values(JSON.parse(readFileSync(appPathsManifestFile, "utf-8"))).map(
+      (file) => ".next/server/" + file,
+    )
+  : [];
+const allManifestFiles = pagesManifestFiles.concat(appPathsManifestFiles);
+
+const htmlPages = allManifestFiles.filter((file) => file.endsWith(".html"));
+const pageModules = allManifestFiles.filter((file) => file.endsWith(".js"));
 
 contents = contents.replace(
   /const pagePath = getPagePath\(.+?\);/,
@@ -192,6 +216,22 @@ contents = contents.replace(
     )
     .join("\n")}
   throw new Error("Unknown pagePath: " + pagePath);
+  `,
+);
+
+contents = contents.replace(
+  /var NodeModuleLoader = class {.+?async load\((.+?)\) {/s,
+  `$&
+  ${pageModules
+    .map(
+      (module) => `
+        if ($1.endsWith("${module}")) {
+          return require("./${APP_BASE_DIR}/${module}");
+        }
+      `,
+    )
+    .join("\n")}
+  throw new Error("Unknown NodeModuleLoader: " + $1);
   `,
 );
 
@@ -265,9 +305,19 @@ contents = contents.replace(
   / ([a-zA-Z0-9_]+) = require\("url"\);/g,
   ` $1 = require("url");
     const origParse = $1.parse;
-    $1.parse = (a, b, c) => {
-      console.log("url.parse", a, b, c);
-      return a.startsWith("/") ? { query: Object.create(null), pathname: a, path: a, href: a } : origParse(a, b, c);
+    $1.parse = (urlString, parseQueryString, slashesDenoteHost) => {
+      console.log("url.parse", urlString, parseQueryString, slashesDenoteHost);
+      if (urlString.startsWith("/") && !slashesDenoteHost) {
+        const url = new URL("http://localhost" + urlString);
+        return {
+          search: url.search,
+          query: parseQueryString ? Object.fromEntries(url.searchParams) : url.search.slice(1),
+          pathname: url.pathname,
+          path: url.pathname + url.search,
+          href: url.pathname + url.search
+        }
+      }
+      return origParse(urlString, parseQueryString, slashesDenoteHost);
     }
     const origFormat = $1.format;
     $1.format = (a, b) => {
@@ -277,10 +327,16 @@ contents = contents.replace(
   `,
 );
 
+const HAS_APP_DIR = existsSync(NEXT_SERVER_DIR + "/app");
+const HAS_PAGES_DIR = existsSync(NEXT_SERVER_DIR + "/pages");
+
 contents = contents.replace(
   "function findDir(dir, name) {",
   `function findDir(dir, name) {
-    if (dir.endsWith(".next/server") && (name === "app" || name === "pages")) return true;
+    if (dir.endsWith(".next/server")) {
+      if (name === "app") return ${HAS_APP_DIR};
+      if (name === "pages") return ${HAS_PAGES_DIR};
+    }
     throw new Error("Unknown findDir call: " + dir + " " + name);
 `,
 );
@@ -333,7 +389,7 @@ writeFileSync(
 );
 
 const cloudflareAssetsFile =
-  "../../node_modules/@cloudflare/kv-asset-handler/dist/index.js";
+  MONOREPO_ROOT + "/node_modules/@cloudflare/kv-asset-handler/dist/index.js";
 writeFileSync(
   cloudflareAssetsFile,
   readFileSync(cloudflareAssetsFile, "utf-8").replace(
@@ -343,8 +399,8 @@ writeFileSync(
 );
 
 const unenvProcessFiles = [
-  "../../node_modules/unenv/runtime/node/process/$cloudflare.cjs",
-  "../../node_modules/unenv/runtime/node/process/$cloudflare.mjs",
+  MONOREPO_ROOT + "/node_modules/unenv/runtime/node/process/$cloudflare.cjs",
+  MONOREPO_ROOT + "/node_modules/unenv/runtime/node/process/$cloudflare.mjs",
 ];
 for (const unenvProcessFile of unenvProcessFiles) {
   writeFileSync(
