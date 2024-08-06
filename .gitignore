@@ -29,3 +29,5 @@ test-results
 .wrangler/
 examples/app-router/meta.json
 examples/app-router/out.mjs
+example/out.mjs
+example/meta.json

@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "openbuild": "OPEN_NEXT_DEBUG=true node ../packages/open-next/dist/index.js build",
     "dev": "sst bind next dev",
     "build": "next build",
     "start": "next start",
-    "deploy": "sst deploy"
+    "deploy": "sst deploy",
+    "prewrangler": "npm run openbuild && node build.mjs",
+    "preview": "wrangler dev"
   },
   "dependencies": {
     "dayjs": "^1.11.9",
@@ -22,6 +25,8 @@
   "devDependencies": {
     "aws-cdk-lib": "2.84.0",
     "constructs": "10.1.156",
-    "sst": "2.16.3"
+    "esbuild": "^0.23.0",
+    "sst": "2.16.3",
+    "wrangler": "^3.68.0"
   }
 }

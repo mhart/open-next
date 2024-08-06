@@ -1,0 +1,12 @@
+#:schema ../../node_modules/wrangler/config-schema.json
+name = "open-next-example"
+main = "out.mjs"
+# main = ".open-next/server-functions/default/index.mjs"
+compatibility_date = "2024-07-01"
+compatibility_flags = ["experimental:nodejs_compat_v2"]
+workers_dev = true
+minify = false
+assets = ".open-next/assets"
+
+[vars]
+DEBUG = "next:*"
