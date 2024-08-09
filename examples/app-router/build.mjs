@@ -29,38 +29,21 @@ const NEXT_SERVER_DIR = NEXT_DIR + "/server";
 let replaceRelativePlugin = {
   name: "replaceRelative",
   setup(build) {
-    build.onResolve({ filter: /^\.\/node-environment$/ }, (args) => ({
-      path: path.join(import.meta.dirname, "./shim-empty.mjs"),
-    }));
-
+    // Can't use custom require hook
     build.onResolve({ filter: /^\.\/require-hook$/ }, (args) => ({
       path: path.join(import.meta.dirname, "./shim-empty.mjs"),
     }));
-
-    build.onResolve({ filter: /^\.\/node-polyfill-/ }, (args) => ({
-      path: path.join(import.meta.dirname, "./shim-empty.mjs"),
-    }));
-
     // No need for edge-runtime sandbox
     build.onResolve({ filter: /\.\/web\/sandbox$/ }, (args) => ({
       path: path.join(import.meta.dirname, "./shim-empty.mjs"),
     }));
-
-    // No need for supporting previews and jsonwebtoken
+    // // No need for supporting previews and jsonwebtoken
     build.onResolve(
       { filter: /\.\/api-utils\/node\/try-get-preview-data$/ },
       (args) => ({
         path: path.join(import.meta.dirname, "./shim-try-get-preview-data.mjs"),
       }),
     );
-
-    build.onResolve({ filter: /\.\/file-system-cache$/ }, (args) => ({
-      path: path.join(import.meta.dirname, "./shim-empty.mjs"),
-    }));
-
-    build.onResolve({ filter: /\.\/lib\/node-fs-methods$/ }, (args) => ({
-      path: path.join(import.meta.dirname, "./shim-empty.mjs"),
-    }));
   },
 };
 
@@ -68,53 +51,9 @@ const result = await esbuild.build({
   entryPoints: [BASE_DIR + "/index.mjs"],
   bundle: true,
   outfile: "out.mjs",
-  external: [
-    // "critters",
-    "@opentelemetry/api",
-    // "react",
-    // "react-dom",
-    // "react-server-dom-turbopack/client.edge",
-    // "react-server-dom-webpack/client.edge",
-    // "react-server-dom-turbopack/server.edge",
-    // "react-server-dom-turbopack/server.node",
-    // "react-server-dom-webpack/server.edge",
-    // "react-server-dom-webpack/server.node",
-    "node:*",
-    "module",
-    "url",
-    "path",
-    "fs",
-    "stream",
-    "http",
-    "https",
-    "os",
-    "tty",
-    "util",
-    "crypto",
-    "events",
-    "vm",
-    "assert",
-    "child_process",
-    "worker_threads",
-    "async_hooks",
-    "net",
-    "tls",
-    "zlib",
-    "busboy",
-    // "./node-environment",
-  ],
   alias: {
-    // "react-server-dom-turbopack/client.edge": "./shim-empty.mjs",
-    // "react-server-dom-webpack/client.edge": "./shim-empty.mjs",
-    // "react-server-dom-turbopack/server.edge": "./shim-empty.mjs",
-    // "react-server-dom-webpack/server.edge": "./shim-empty.mjs",
-    // "react-server-dom-turbopack/server.node": "./shim-empty.mjs",
-    // "react-server-dom-webpack/server.node": "./shim-empty.mjs",
-    // "react-dom/server.edge": "./shim-empty.mjs",
-    // "react-dom/static.edge": "./shim-empty.mjs",
-    // "@opentelemetry/api": "./shim-opentelemetry.mjs",
-    // critters: "./shim-empty.mjs",
     "next/dist/experimental/testmode/server": "./shim-empty.mjs",
+    "next/dist/compiled/ws": "./shim-empty.mjs",
     "@next/env": "./shim-env.mjs",
   },
   plugins: [replaceRelativePlugin],
@@ -122,19 +61,15 @@ const result = await esbuild.build({
   target: "esnext",
   minify: false,
   define: {
-    // "process.env.NEXT_RUNTIME": '"edge"',
     "process.env.NEXT_RUNTIME": '"nodejs"',
+    __dirname: '""',
+    "globalThis.__NEXT_HTTP_AGENT": "{}",
     "process.env.NODE_ENV": '"production"',
     "process.env.NEXT_MINIMAL": "true",
-    // "process.env.NEXT_MINIMAL": "false",
     "process.env.NEXT_PRIVATE_MINIMAL_MODE": "true",
-    // "process.env.NEXT_PRIVATE_MINIMAL_MODE": "false",
-    __dirname: '""',
     __non_webpack_require__: "require",
-    "globalThis.__NEXT_HTTP_AGENT": "{}",
   },
-  platform: "browser",
-  conditions: ["workerd", "worker", "browser"],
+  platform: "node",
   metafile: true,
   banner: {
     js: `
@@ -150,8 +85,12 @@ contents = contents
   .replace(/__require\d?\./g, "require.");
 
 contents = contents.replace(
-  "this.buildId = this.getBuildId();",
-  "this.buildId = BuildId;",
+  "getBuildId() {",
+  `getBuildId() {
+    return ${JSON.stringify(
+      readFileSync(NEXT_DIR + "/BUILD_ID", "utf-8").trim(),
+    )};
+  `,
 );
 
 const manifestJsons = globSync(NEXT_DIR + "/**/*-manifest.json").map((file) =>
@@ -173,6 +112,13 @@ contents = contents.replace(
   throw new Error("Unknown loadManifest: " + $1);
   `,
 );
+
+const openNextConfig = readFileSync(
+  APP_BASE_DIR + "/open-next.config.mjs",
+  "utf-8",
+).match(/ config = {.+?};/s)[0];
+
+contents = contents.replace(/ config = await import\(.+?;/, openNextConfig);
 
 const pagesManifestFile = NEXT_SERVER_DIR + "/pages-manifest.json";
 const appPathsManifestFile = NEXT_SERVER_DIR + "/app-paths-manifest.json";
@@ -220,19 +166,62 @@ contents = contents.replace(
 );
 
 contents = contents.replace(
-  /var NodeModuleLoader = class {.+?async load\((.+?)\) {/s,
-  `$&
-  ${pageModules
-    .map(
-      (module) => `
-        if ($1.endsWith("${module}")) {
-          return require("./${APP_BASE_DIR}/${module}");
-        }
-      `,
-    )
-    .join("\n")}
-  throw new Error("Unknown NodeModuleLoader: " + $1);
+  /if \(cacheHandler\) {.+?CacheHandler = .+?}/s,
+  `
+  CacheHandler = null;
   `,
+);
+
+contents = contents.replace(
+  / ([a-zA-Z0-9_]+) = require\("url"\);/g,
+  ` $1 = require("url");
+    const origParse = $1.parse;
+    $1.parse = (urlString, parseQueryString, slashesDenoteHost) => {
+      console.log("url.parse", urlString, parseQueryString, slashesDenoteHost);
+      if (urlString.startsWith("/") && !slashesDenoteHost) {
+        const url = new URL("http://localhost" + urlString);
+        return {
+          search: url.search,
+          query: parseQueryString ? Object.fromEntries(url.searchParams) : url.search.slice(1),
+          pathname: url.pathname,
+          path: url.pathname + url.search,
+          href: url.pathname + url.search
+        }
+      }
+      return origParse(urlString, parseQueryString, slashesDenoteHost);
+    }
+    const origFormat = $1.format;
+    $1.format = (a, b) => {
+      console.log("url.format", a, b);
+      return a?.pathname ? a.pathname.replace("?", "%3F") : origFormat(a, b);
+    }
+    $1.pathToFileURL = (path) => {
+      console.log("url.pathToFileURL", path);
+      return new URL("file://" + path);
+    }
+  `,
+);
+
+const HAS_APP_DIR = existsSync(NEXT_SERVER_DIR + "/app");
+const HAS_PAGES_DIR = existsSync(NEXT_SERVER_DIR + "/pages");
+
+contents = contents.replace(
+  "function findDir(dir, name) {",
+  `function findDir(dir, name) {
+    if (dir.endsWith(".next/server")) {
+      if (name === "app") return ${HAS_APP_DIR};
+      if (name === "pages") return ${HAS_PAGES_DIR};
+    }
+    throw new Error("Unknown findDir call: " + dir + " " + name);
+`,
+);
+
+contents = contents.replace(
+  "async function loadClientReferenceManifest(manifestPath, entryName) {",
+  `async function loadClientReferenceManifest(manifestPath, entryName) {
+    const context = await evalManifestWithRetries(manifestPath);
+    return context.__RSC_MANIFEST[entryName];
+`,
 );
 
 const manifestJss = globSync(
@@ -267,91 +256,35 @@ contents = contents.replace(
   `,
 );
 
-const openNextConfig = readFileSync(
-  APP_BASE_DIR + "/open-next.config.mjs",
-  "utf-8",
-).match(/ config = {.+?};/s)[0];
-
-contents = contents.replace(/ config = await import\(.+?;/, openNextConfig);
-
 contents = contents.replace(
-  /if \(cacheHandler\) {.+?CacheHandler = .+?}/s,
-  `
-  CacheHandler = class CustomCacheHandler {
-    constructor(ctx) {
-      this.cache = Object.create(null);
-    }
-    async get(key, ctx) {
-      return {
-        value: cache[key] ?? null
-      }
-    }
-    async set (key, data, ctx) {
-      cache[key] = data;
-    }
-    async revalidateTag(tags) {
-      console.log('revalidateTag', tags);
-      this.cache = Object.create(null);
-    }
-    resetRequestCache() {
-      console.log('resetRequestCache');
-      this.cache = Object.create(null);
-    }
-  }
-  `,
-);
-
-contents = contents.replace(
-  / ([a-zA-Z0-9_]+) = require\("url"\);/g,
-  ` $1 = require("url");
-    const origParse = $1.parse;
-    $1.parse = (urlString, parseQueryString, slashesDenoteHost) => {
-      console.log("url.parse", urlString, parseQueryString, slashesDenoteHost);
-      if (urlString.startsWith("/") && !slashesDenoteHost) {
-        const url = new URL("http://localhost" + urlString);
-        return {
-          search: url.search,
-          query: parseQueryString ? Object.fromEntries(url.searchParams) : url.search.slice(1),
-          pathname: url.pathname,
-          path: url.pathname + url.search,
-          href: url.pathname + url.search
+  /var NodeModuleLoader = class {.+?async load\((.+?)\) {/s,
+  `$&
+  ${pageModules
+    .map(
+      (module) => `
+        if ($1.endsWith("${module}")) {
+          return require("./${APP_BASE_DIR}/${module}");
         }
-      }
-      return origParse(urlString, parseQueryString, slashesDenoteHost);
-    }
-    const origFormat = $1.format;
-    $1.format = (a, b) => {
-      console.log("url.format", a, b);
-      return a?.pathname ? a.pathname.replace("?", "%3F") : origFormat(a, b);
-    }
+      `,
+    )
+    .join("\n")}
+  throw new Error("Unknown NodeModuleLoader: " + $1);
   `,
-);
-
-const HAS_APP_DIR = existsSync(NEXT_SERVER_DIR + "/app");
-const HAS_PAGES_DIR = existsSync(NEXT_SERVER_DIR + "/pages");
-
-contents = contents.replace(
-  "function findDir(dir, name) {",
-  `function findDir(dir, name) {
-    if (dir.endsWith(".next/server")) {
-      if (name === "app") return ${HAS_APP_DIR};
-      if (name === "pages") return ${HAS_PAGES_DIR};
-    }
-    throw new Error("Unknown findDir call: " + dir + " " + name);
-`,
-);
-
-contents = contents.replace(
-  "async function loadClientReferenceManifest(manifestPath, entryName) {",
-  `async function loadClientReferenceManifest(manifestPath, entryName) {
-    const context = await evalManifestWithRetries(manifestPath);
-    return context.__RSC_MANIFEST[entryName];
-`,
 );
 
 writeFileSync("./out.mjs", contents);
 
 writeFileSync("./meta.json", JSON.stringify(result.metafile, null, 2));
+
+const cloudflareAssetsFile =
+  MONOREPO_ROOT + "/node_modules/@cloudflare/kv-asset-handler/dist/index.js";
+writeFileSync(
+  cloudflareAssetsFile,
+  readFileSync(cloudflareAssetsFile, "utf-8").replace(
+    'const mime = __importStar(require("mime"));',
+    'let mime = __importStar(require("mime")); mime = mime.default ?? mime;',
+  ),
+);
 
 const globalUtilsFile =
   BASE_DIR +
@@ -385,16 +318,6 @@ writeFileSync(
         )
         .join("\n")}
     `,
-  ),
-);
-
-const cloudflareAssetsFile =
-  MONOREPO_ROOT + "/node_modules/@cloudflare/kv-asset-handler/dist/index.js";
-writeFileSync(
-  cloudflareAssetsFile,
-  readFileSync(cloudflareAssetsFile, "utf-8").replace(
-    'const mime = __importStar(require("mime"));',
-    'let mime = __importStar(require("mime")); mime = mime.default ?? mime;',
   ),
 );
 
